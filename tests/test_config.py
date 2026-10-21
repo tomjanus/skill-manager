@@ -84,9 +84,10 @@ class WriteDefaultEnvFileTests(unittest.TestCase):
     def test_creates_once(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "config" / ".env"
-            self.assertTrue(config.write_default_env_file(path, Path("~/skills")))
-            self.assertIn("SKILLS_DIR=~/skills", path.read_text(encoding="utf-8"))
-            self.assertFalse(config.write_default_env_file(path, Path("~/skills")))
+            skills_dir = Path("~/skills")
+            self.assertTrue(config.write_default_env_file(path, skills_dir))
+            self.assertIn(f"SKILLS_DIR={skills_dir}", path.read_text(encoding="utf-8"))
+            self.assertFalse(config.write_default_env_file(path, skills_dir))
 
 
 if __name__ == "__main__":
