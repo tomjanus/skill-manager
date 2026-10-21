@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 from skill_manager.cli import main
+from skill_manager.platform import is_link
 from tests.helpers import init_git, write_skill
 
 
@@ -52,7 +53,7 @@ class CliTestCase(unittest.TestCase):
 class AddAndRemoveTests(CliTestCase):
     def test_add_then_list_then_remove(self) -> None:
         self.assertEqual(self.run_cli("add", "alpha"), 0)
-        self.assertTrue(self.target("alpha").is_symlink())
+        self.assertTrue(is_link(self.target("alpha")))
         self.assertEqual(self.run_cli("remove", "alpha", "--yes"), 0)
         self.assertFalse(self.target("alpha").exists())
 
@@ -62,12 +63,12 @@ class AddAndRemoveTests(CliTestCase):
     def test_add_over_unmanaged_target_returns_nonzero(self) -> None:
         (self.project / ".opencode" / "skills" / "alpha").mkdir(parents=True)
         self.assertEqual(self.run_cli("add", "alpha"), 1)
-        self.assertFalse(self.target("alpha").is_symlink())
+        self.assertFalse(is_link(self.target("alpha")))
 
     def test_add_with_force_replaces_unmanaged_target(self) -> None:
         (self.project / ".opencode" / "skills" / "alpha").mkdir(parents=True)
         self.assertEqual(self.run_cli("add", "alpha", "--force"), 0)
-        self.assertTrue(self.target("alpha").is_symlink())
+        self.assertTrue(is_link(self.target("alpha")))
 
     def test_remove_unmanaged_requires_force(self) -> None:
         (self.project / ".opencode" / "skills" / "alpha").mkdir(parents=True)

@@ -9,7 +9,7 @@ from typing import Any
 
 from . import config, manifest
 from .discovery import Skill, content_hash, discover_skills
-from .platform import LinkError, copy_tree, link, remove_target, target_exists
+from .platform import LinkError, copy_tree, is_link, link, remove_target, target_exists
 from .project import TargetInfo, scan_target
 from .ui import UI
 
@@ -288,7 +288,7 @@ class Manager:
                 continue
 
             if mode == manifest.MODE_LINK:
-                if target.is_symlink() and target.exists():
+                if is_link(target) and target.exists():
                     self.ui.info(f"'{name}' is up to date.")
                     continue
                 self._install(skill, target, mode)
@@ -298,7 +298,7 @@ class Manager:
                 continue
 
             # Copy mode.
-            if not target_exists(target) or target.is_symlink():
+            if not target_exists(target) or is_link(target):
                 self._install(skill, target, mode)
                 manifest.set_entry(data, name, mode, content_hash(skill.path))
                 changed = True
@@ -359,14 +359,14 @@ class Manager:
         if entry.get("mode") != mode:
             return False
         if mode == manifest.MODE_COPY:
-            if target.is_symlink() or not target.is_dir():
+            if is_link(target) or not target.is_dir():
                 return False
             recorded = entry.get("hash")
             return (
                 content_hash(skill.path) == recorded
                 and content_hash(target) == recorded
             )
-        return target.is_symlink() and target.exists()
+        return is_link(target) and target.exists()
 
     @staticmethod
     def _render_choice(index: int, skill: Skill) -> str:

@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from skill_manager import platform
+from skill_manager.platform import is_link
 from tests.helpers import write_skill
 
 
@@ -15,7 +16,7 @@ class LinkTests(unittest.TestCase):
             source = write_skill(root, "alpha")
             target = root / "target"
             platform.link(source, target)
-            self.assertTrue(target.is_symlink())
+            self.assertTrue(is_link(target))
             self.assertTrue(target.exists())
 
     def test_is_broken_link(self) -> None:

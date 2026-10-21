@@ -13,19 +13,43 @@ import subprocess
 import sys
 from pathlib import Path
 
+FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+IO_REPARSE_TAG_MOUNT_POINT = 0xA0000003
+
 
 class LinkError(RuntimeError):
     """Raised when a link or junction could not be created."""
 
 
+def is_link(path: Path) -> bool:
+    """Return ``True`` when *path* is a symbolic link or a Windows junction.
+
+    ``Path.is_symlink()`` reports junctions as ``False``, so every place
+    that has to know whether a target is a link must use this helper.
+    """
+    if path.is_symlink():
+        return True
+    if os.name != "nt":
+        return False
+    try:
+        info = path.lstat()
+    except OSError:
+        return False
+    attributes = int(getattr(info, "st_file_attributes", 0) or 0)
+    if not attributes & FILE_ATTRIBUTE_REPARSE_POINT:
+        return False
+    tag = int(getattr(info, "st_reparse_tag", 0) or 0)
+    return tag == IO_REPARSE_TAG_MOUNT_POINT
+
+
 def target_exists(path: Path) -> bool:
     """Return ``True`` when *path* exists, including broken links."""
-    return path.exists() or path.is_symlink()
+    return path.exists() or is_link(path)
 
 
 def is_broken_link(path: Path) -> bool:
     """Return ``True`` when *path* is a link whose target is missing."""
-    return path.is_symlink() and not path.exists()
+    return is_link(path) and not path.exists()
 
 
 def _create_junction(src: Path, dst: Path) -> None:
@@ -62,8 +86,12 @@ def copy_tree(src: Path, dst: Path) -> None:
 
 
 def remove_target(path: Path) -> None:
-    """Remove a link, file, or directory tree at *path*."""
-    if path.is_symlink() or path.is_file():
+    """Remove a link, file, or directory tree at *path*.
+
+    Links (symbolic links and Windows junctions) are unlinked rather than
+    deleted recursively, so the skill source they point at is never touched.
+    """
+    if is_link(path) or path.is_file():
         path.unlink()
     elif path.is_dir():
         shutil.rmtree(path)

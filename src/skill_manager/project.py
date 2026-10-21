@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .platform import is_link
+
 
 def find_project_root(start: Path, override: Path | None = None) -> Path:
     """Return the project root for *start*.
@@ -49,8 +51,9 @@ class TargetInfo:
 def scan_target(target_dir: Path) -> dict[str, TargetInfo]:
     """Return a mapping of skill name to :class:`TargetInfo` for *target_dir*.
 
-    Only directories and symbolic links are considered; loose files such as
-    opencode's ``skills-lock.json`` are ignored.
+    Only directories and links (symbolic links or Windows junctions) are
+    considered; loose files such as opencode's ``skills-lock.json`` are
+    ignored.
     """
     targets: dict[str, TargetInfo] = {}
     if not target_dir.is_dir():
@@ -58,7 +61,7 @@ def scan_target(target_dir: Path) -> dict[str, TargetInfo]:
     for entry in sorted(target_dir.iterdir(), key=lambda p: p.name):
         if entry.name.startswith("."):
             continue
-        if entry.is_symlink():
+        if is_link(entry):
             targets[entry.name] = TargetInfo(
                 name=entry.name, path=entry, is_link=True, exists=entry.exists()
             )

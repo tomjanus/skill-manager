@@ -13,7 +13,7 @@ from skill_manager.operations import (
     STATUS_OUTDATED,
     Manager,
 )
-from skill_manager.platform import LinkError
+from skill_manager.platform import LinkError, is_link
 from tests.helpers import init_git, make_ui, write_skill
 
 
@@ -55,7 +55,7 @@ class AddTests(ManagerTestCase):
         write_skill(self.source, "alpha", "Alpha skill.")
         self.manager.add(["alpha"], "link", force=False, yes=True, interactive=False)
         target = self.target / "alpha"
-        self.assertTrue(target.is_symlink())
+        self.assertTrue(is_link(target))
         entry = manifest.get_entry(self.manifest_data(), "alpha")
         self.assertEqual(entry["mode"], "link")
 
@@ -64,7 +64,7 @@ class AddTests(ManagerTestCase):
         self.manager.add(["alpha"], "copy", force=False, yes=True, interactive=False)
         target = self.target / "alpha"
         self.assertTrue(target.is_dir())
-        self.assertFalse(target.is_symlink())
+        self.assertFalse(is_link(target))
         self.assertEqual(
             manifest.get_entry(self.manifest_data(), "alpha")["mode"], "copy"
         )
@@ -87,7 +87,7 @@ class AddTests(ManagerTestCase):
         (self.target / "alpha").mkdir()
         (self.target / "alpha" / "manual.txt").write_text("manual", encoding="utf-8")
         self.manager.add(["alpha"], "link", force=False, yes=True, interactive=False)
-        self.assertFalse((self.target / "alpha").is_symlink())
+        self.assertFalse(is_link(self.target / "alpha"))
         self.assertTrue(any("not managed" in w for w in self.ui.warnings))
 
     def test_add_unmanaged_collision_replaced_with_force(self) -> None:
@@ -95,7 +95,7 @@ class AddTests(ManagerTestCase):
         (self.target).mkdir(parents=True)
         (self.target / "alpha").mkdir()
         self.manager.add(["alpha"], "link", force=True, yes=True, interactive=False)
-        self.assertTrue((self.target / "alpha").is_symlink())
+        self.assertTrue(is_link(self.target / "alpha"))
 
     def test_add_updates_changed_copy(self) -> None:
         skill_dir = write_skill(self.source, "alpha", extra_files={"f.txt": "one"})
@@ -115,7 +115,7 @@ class AddTests(ManagerTestCase):
                 ["alpha"], "link", force=False, yes=True, interactive=False
             )
         self.assertTrue((self.target / "alpha").is_dir())
-        self.assertFalse((self.target / "alpha").is_symlink())
+        self.assertFalse(is_link(self.target / "alpha"))
         self.assertEqual(
             (self.target / "alpha" / "SKILL.md").read_text(encoding="utf-8"), original
         )
@@ -167,7 +167,7 @@ class SyncTests(ManagerTestCase):
         self.manager.add(["alpha"], "link", force=False, yes=True, interactive=False)
         (self.target / "alpha").unlink()
         self.manager.sync(yes=True, force=False)
-        self.assertTrue((self.target / "alpha").is_symlink())
+        self.assertTrue(is_link(self.target / "alpha"))
 
     def test_sync_removes_missing_source(self) -> None:
         skill_dir = write_skill(self.source, "alpha")
