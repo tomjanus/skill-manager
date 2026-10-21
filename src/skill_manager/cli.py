@@ -15,13 +15,15 @@ from .project import find_project_root
 from .ui import ConsoleUI
 
 DESCRIPTION = (
-    "Manage opencode Agent Skills: discover skills in a private folder and "
-    "link or copy them into a project."
+    "Manager of opencode Agent Skills: keeps them in a private folder and "
+    "links or copies the ones a project needs."
 )
+
+PROG = "simple-skill-manager"
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="skill-manager", description=DESCRIPTION)
+    parser = argparse.ArgumentParser(prog=PROG, description=DESCRIPTION)
     parser.add_argument(
         "--skills-dir",
         help="Source skills directory (overrides SKILLS_DIR in the env file).",

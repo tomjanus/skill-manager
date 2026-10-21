@@ -83,7 +83,7 @@ class Manager:
             self.ui.info(f"Configuration file: {self.env_file}")
         self.ui.info(
             "Done. Add skills to the source directory, then run "
-            "'skill-manager add' inside a project."
+            "'simple-skill-manager add' inside a project."
         )
 
     # ------------------------------------------------------------------
