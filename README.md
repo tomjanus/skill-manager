@@ -1,4 +1,4 @@
-# skill-manager
+# simple-skill-manager
 
 Keep your opencode **Agent Skills** in a private folder, then link or copy
 the ones a project needs — without hand-managing symlinks.
@@ -8,47 +8,51 @@ The problem it solves: opencode discovers skills from
 Loading every skill you own into every session is noise. But copying or
 linking skills into each project by hand is tedious.
 
-`skill-manager` keeps your skills in a folder of your choosing (by default
-`~/skills`, which opencode does **not** discover), lets you browse them, and
-adds the ones you want to a specific project — as a symlink or a copy.
+`simple-skill-manager` keeps your skills in a folder of your choosing (by
+default `~/skills`, which opencode does **not** discover), lets you browse
+them, and adds the ones you want to a specific project — as a symlink or a
+copy.
 
 - **Linux, macOS, and Windows** (Windows uses a directory junction when
   symlinks are unavailable).
 - **No runtime dependencies** — Python 3.10+ standard library only.
 - **Reproducible** — the project's selection is recorded in a committed
-  manifest, so `skill-manager sync` can restore it anywhere.
+  manifest, so `simple-skill-manager sync` can restore it anywhere.
 
 ---
 
 ## Install
 
-With [pipx](https://pipx.pypa.io/):
+From [PyPI](https://pypi.org/project/simple-skill-manager/), with
+[pipx](https://pipx.pypa.io/):
 
 ```bash
-pipx install /path/to/skill-manager
+pipx install simple-skill-manager
 ```
 
 or, with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv tool install /path/to/skill-manager
+uv tool install simple-skill-manager
 ```
 
-Both install the `skill-manager` command onto your `PATH` in an isolated
-environment, so the tool's dependencies never touch your system Python.
+Both install the `simple-skill-manager` command onto your `PATH` in an
+isolated environment, so the tool's dependencies never touch your system
+Python. The shorter `skill-manager` name is installed as an alias, so
+either command works.
 
 From a clone of this repository:
 
 ```bash
-git clone <this-repo> ~/src/skill-manager
-pipx install ~/src/skill-manager
+git clone https://github.com/tomjanus/skill-manager.git
+pipx install ./skill-manager
 ```
 
 Later upgrades:
 
 ```bash
-pipx upgrade skill-manager
-uv tool upgrade skill-manager
+pipx upgrade simple-skill-manager
+uv tool upgrade simple-skill-manager
 ```
 
 To run it without installing:
@@ -60,8 +64,8 @@ PYTHONPATH=src python -m skill_manager --help
 To uninstall:
 
 ```bash
-pipx uninstall skill-manager
-uv tool uninstall skill-manager
+pipx uninstall simple-skill-manager
+uv tool uninstall simple-skill-manager
 ```
 
 ---
@@ -71,7 +75,7 @@ uv tool uninstall skill-manager
 ### 1. Initialise the configuration
 
 ```bash
-skill-manager init
+simple-skill-manager init
 ```
 
 This creates:
@@ -115,9 +119,9 @@ name and be lowercase alphanumeric with single hyphens.
 
 ```bash
 cd ~/projects/my-project
-skill-manager add                 # interactive picker
-skill-manager add tdd scientific-python
-skill-manager add tdd --copy      # copy instead of linking
+simple-skill-manager add                 # interactive picker
+simple-skill-manager add tdd scientific-python
+simple-skill-manager add tdd --copy      # copy instead of linking
 ```
 
 `add` writes into `<project root>/.opencode/skills/<name>/`, which is where
@@ -127,7 +131,7 @@ worktree, so the command works from any subdirectory.
 ### 4. See what you have
 
 ```bash
-skill-manager list
+simple-skill-manager list
 ```
 
 ```
@@ -144,12 +148,12 @@ water-distribution  not-installed —       Water-distribution networks, hydraul
 
 ## Commands
 
-### `skill-manager init`
+### `simple-skill-manager init`
 
 Creates the configuration file and the source skills directory if they do
 not exist. Safe to re-run.
 
-### `skill-manager list`
+### `simple-skill-manager list`
 
 Merges three sources of truth — your source folder, the project's
 `.opencode/skills/` folder, and the project manifest — into one table.
@@ -162,11 +166,11 @@ Merges three sources of truth — your source folder, the project's
 | `missing` | In the manifest, but not in the project folder |
 | `missing-source` | In the project, but gone from the source folder |
 | `not-installed` | Available in the source folder, not in the project |
-| `external` | In the project folder but **not** managed by `skill-manager` (for example opencode's own installer) |
+| `external` | In the project folder but **not** managed by `simple-skill-manager` (for example opencode's own installer) |
 
 Flags: `--available` (source only), `--installed` (project only), `--json`.
 
-### `skill-manager add [NAME ...]`
+### `simple-skill-manager add [NAME ...]`
 
 Adds skills to the project.
 
@@ -178,20 +182,20 @@ Adds skills to the project.
   date` and does nothing.
 - If the source changed, or the link is broken, you are asked before
   updating. `--yes` accepts all updates.
-- If the target exists but is **not** managed by `skill-manager`, the
+- If the target exists but is **not** managed by `simple-skill-manager`, the
   command refuses to touch it. `--force` replaces it.
 
 Flags: `--copy`, `--force`, `--yes`.
 
-### `skill-manager remove NAME ...`
+### `simple-skill-manager remove NAME ...`
 
 Removes skills from the project folder and from the manifest. You are asked
 for confirmation unless `--yes` is given. Skills not managed by
-`skill-manager` are only removed with `--force`.
+`simple-skill-manager` are only removed with `--force`.
 
 Flags: `--yes`, `--force`.
 
-### `skill-manager sync`
+### `simple-skill-manager sync`
 
 Reconciles the skills **already installed** in the project with their
 source. It never adds new skills.
@@ -247,7 +251,7 @@ Global flags (`--skills-dir`, `--target-dir`, `--root`, `--env-file`) may be
 given before the subcommand:
 
 ```bash
-skill-manager --skills-dir /opt/skills list
+simple-skill-manager --skills-dir /opt/skills list
 ```
 
 ---
@@ -282,7 +286,7 @@ skill selection reproducible on another machine:
 
 ```bash
 git clone <repo> && cd <repo>
-skill-manager sync
+simple-skill-manager sync
 ```
 
 The target folder `.opencode/skills/` is a build artefact; it is usually
@@ -293,9 +297,13 @@ git-ignored.
 ## Windows notes
 
 Windows requires either Administrator rights or Developer Mode to create
-symbolic links. When `os.symlink` fails, `skill-manager` falls back to a
-directory **junction** (`mklink /J`), which needs neither. If even that
+symbolic links. When `os.symlink` fails, `simple-skill-manager` falls back
+to a directory **junction** (`mklink /J`), which needs neither. If even that
 fails, use `--copy`.
+
+Junctions are treated exactly like symbolic links: they are detected as
+links, reported as `broken` when their source disappears, and removing one
+never deletes the skill it points at.
 
 Windows paths containing backslashes or spaces are handled correctly in the
 `.env` file, but remember that `KEY=VALUE` splits on the first `=`, so a
@@ -305,26 +313,92 @@ value containing `=` should be quoted.
 
 ## Development
 
+### Requirements
+
+- Python 3.10 or newer.
+- No runtime dependencies. The test and tooling dependencies are declared
+  as extras in `pyproject.toml` and installed on demand.
+
+### Set up an environment
+
 ```bash
-git clone <this-repo> && cd skill-manager
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
+git clone https://github.com/tomjanus/skill-manager.git
+cd skill-manager
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
 ```
 
-Run the tests (standard library only, no test dependencies):
+The extras are:
+
+| Extra | Contents | Install with |
+| --- | --- | --- |
+| `test` | `pytest` | `pip install -e ".[test]"` |
+| `dev` | `pytest`, `ruff`, `mypy`, `build`, `twine`, `coverage` | `pip install -e ".[dev]"` |
+
+Use `test` when you only want to run the test suite, and `dev` for the full
+tooling set.
+
+### Run the tests
 
 ```bash
-PYTHONPATH=src python -m unittest discover -s tests -t .
+python -m pytest                      # the whole suite
+python -m pytest tests/test_cli.py    # a single file
+python -m pytest -k sync              # everything matching a keyword
+python -m pytest -q                   # quiet output
 ```
 
-Optional development tools (not required to use the CLI):
+The tests are written with `unittest`, so they also run without installing
+any third-party package:
 
 ```bash
-pip install ruff mypy
+python -m unittest discover -s tests -t .
+```
+
+That form still needs the package itself to be importable — use the virtual
+environment above, or prefix the command with `PYTHONPATH=src`.
+
+### Coverage
+
+```bash
+coverage run -m pytest
+coverage report
+```
+
+### Lint, format and type check
+
+```bash
 ruff check src tests
 ruff format --check src tests
 mypy
 ```
+
+`mypy` runs in strict mode over `src/skill_manager`.
+
+### Build the distribution
+
+```bash
+python -m build            # writes dist/*.whl and dist/*.tar.gz
+twine check dist/*
+```
+
+`twine check` validates the metadata and the rendered long description
+exactly as PyPI will show them.
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request:
+
+- the test suite on Python 3.10 – 3.14 (Linux),
+- the test suite on macOS and Windows,
+- `ruff check`, `ruff format --check` and `mypy`,
+- a distribution build followed by `twine check` and an install smoke test
+  of the built wheel.
+
+### Releasing
+
+Releases are published to PyPI from a GitHub release using trusted
+publishing — see [RELEASING.md](RELEASING.md).
 
 ### Layout
 
@@ -344,4 +418,4 @@ src/skill_manager/
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
