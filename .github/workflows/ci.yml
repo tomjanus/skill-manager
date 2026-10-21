@@ -31,7 +31,22 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[test]"
       - name: Run the test suite
-        run: python -m pytest -q
+        shell: bash
+        run: |
+          status=0
+          python -m pytest -q --tb=long -ra > test-output.txt 2>&1 || status=$?
+          cat test-output.txt
+          {
+            echo "### Test output"
+            echo '```'
+            cat test-output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -ne 0 ]; then
+            message="$(tail -c 3000 test-output.txt | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | tr '\n' ' ')"
+            echo "::error title=Test failure::${message}"
+          fi
+          exit "$status"
 
   test-platforms:
     name: test (${{ matrix.os }}, Python ${{ matrix.python-version }})
@@ -51,7 +66,22 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[test]"
       - name: Run the test suite
-        run: python -m pytest -q
+        shell: bash
+        run: |
+          status=0
+          python -m pytest -q --tb=long -ra > test-output.txt 2>&1 || status=$?
+          cat test-output.txt
+          {
+            echo "### Test output"
+            echo '```'
+            cat test-output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -ne 0 ]; then
+            message="$(tail -c 3000 test-output.txt | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | tr '\n' ' ')"
+            echo "::error title=Test failure::${message}"
+          fi
+          exit "$status"
 
   lint:
     name: lint and type check
