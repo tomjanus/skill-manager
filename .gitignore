@@ -11,3 +11,7 @@ venv/
 .mypy_cache/
 .coverage
 htmlcov/
+PROMPT.md
+AGENTS.md
+.opencode
+.claude
