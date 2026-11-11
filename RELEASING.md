@@ -40,8 +40,8 @@ here so the setup can be reproduced or moved.
 
    ```bash
    git add pyproject.toml CHANGELOG.md
-   git commit -m "release: v0.2.0"
-   git tag -a v0.2.0 -m "v0.2.0"
+   git commit -m "release: v0.3.0"
+   git tag -a v0.3.0 -m "v0.3.0"
    git push origin master --tags
    ```
 

@@ -7,7 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-11-11
+## [0.3.0] - 2026-11-12
+
+### Added
+
+- Skill bundles: an outermost folder other than the source root, without
+  `SKILL.md`, containing at least two distinct skills is a collection;
+  installing it installs each member under its own name.
+- `list` renders bundles as group headers with member skills indented below;
+  a bundle has `partial` status when only some members are installed.
+- The interactive `add` picker lets users select either a whole bundle or
+  individual member skills. `list --json` stays flat (one row per skill).
+- Interactive `add` prompts users to choose a source when a skill name has
+  multiple candidates. Non-interactive `add` reports an error; `list` and
+  `sync` continue to choose the newest `SKILL.md` by mtime.
+- Colourful CLI output: statuses are colour-coded (installed green, outdated
+  yellow, broken red, partial cyan) and informational/warning/error messages
+  are coloured when the output is a terminal.
+
+### Changed
+
+- Duplicate-name links are considered outdated when they point to a source
+  other than the current newest candidate, and `sync` repoints them.
+
+[0.2.0] - 2026-11-11
 
 ### Added
 
@@ -54,5 +77,7 @@ First public release.
 - Continuous integration on Python 3.10 – 3.14, macOS and Windows, plus
   lint, type-check and distribution-build jobs.
 
-[Unreleased]: https://github.com/tomjanus/skill-manager/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/tomjanus/skill-manager/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/tomjanus/skill-manager/releases/tag/v0.3.0
+[0.2.0]: https://github.com/tomjanus/skill-manager/releases/tag/v0.2.0
 [0.1.0]: https://github.com/tomjanus/skill-manager/releases/tag/v0.1.0
