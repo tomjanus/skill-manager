@@ -33,6 +33,19 @@ class DuplicateInfo:
     duplicates: list[Path] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class Bundle:
+    """A collection of skills under a single folder.
+
+    A bundle is *not* itself a skill: its folder has no ``SKILL.md``. Its
+    members are the discoverable skills beneath it (transitively).
+    """
+
+    name: str
+    path: Path
+    skills: tuple[Skill, ...] = ()
+
+
 def parse_frontmatter(text: str) -> dict[str, str]:
     """Parse a minimal YAML frontmatter block from *text*.
 
@@ -195,6 +208,83 @@ def discover_skills_with_duplicates(
         return [], []
     collected = _collect_skills(skills_dir)
     return _deduplicate(collected)
+
+
+def discover_bundles(skills_dir: Path) -> list[Bundle]:
+    """Return the bundle folders under *skills_dir*.
+
+    A folder is a bundle when it has no ``SKILL.md`` at its root and contains
+    at least two distinct discoverable skill names beneath it (transitively). Only the
+    highest-level qualifying folder is returned, so bundles never nest. The
+    skills directory root itself is never a bundle, and a folder with a
+    ``SKILL.md`` is always an individual skill, never a bundle.
+    """
+    if not skills_dir.is_dir():
+        return []
+    collected = _collect_skills(skills_dir)
+
+    candidates: set[Path] = set()
+    for skill, _ in collected:
+        for ancestor in skill.path.parents:
+            # Only consider folders strictly beneath the skills dir; the
+            # skills dir itself and anything above it can never be a bundle.
+            if skills_dir not in ancestor.parents:
+                continue
+            if not ancestor.is_dir():
+                continue
+            if (ancestor / SKILL_FILE_NAME).is_file():
+                continue
+            member_names = {
+                skill.name for skill, _ in collected if ancestor in skill.path.parents
+            }
+            if len(member_names) >= 2:
+                candidates.add(ancestor)
+
+    # Keep only maximal candidates (not strictly contained in another),
+    # so bundles never nest.
+    maximal = [
+        cand
+        for cand in candidates
+        if not any(other != cand and other in cand.parents for other in candidates)
+    ]
+
+    # De-duplicate bundles that resolve to the same real directory (symlinks).
+    seen: set[str] = set()
+    bundles: list[Bundle] = []
+    for cand in sorted(maximal, key=lambda p: p.name):
+        try:
+            real = os.path.realpath(cand)
+        except OSError:
+            continue
+        if real in seen:
+            continue
+        seen.add(real)
+        member_skills = tuple(
+            skill for skill, _ in collected if cand in skill.path.parents
+        )
+        bundles.append(Bundle(name=cand.name, path=cand, skills=member_skills))
+
+    bundles.sort(key=lambda b: b.name)
+    return bundles
+
+
+def discover_all_candidates(
+    skills_dir: Path,
+) -> dict[str, list[Skill]]:
+    """Return every discoverable skill grouped by name, without dedup.
+
+    When a name is defined at multiple source paths, every candidate is
+    listed so the caller can let the user choose which source to install.
+    """
+    if not skills_dir.is_dir():
+        return {}
+    collected = _collect_skills(skills_dir)
+    by_name: dict[str, list[Skill]] = {}
+    for skill, _ in collected:
+        by_name.setdefault(skill.name, []).append(skill)
+    for name in by_name:
+        by_name[name].sort(key=lambda skill: skill.path.as_posix())
+    return dict(sorted(by_name.items()))
 
 
 def content_hash(path: Path) -> str:

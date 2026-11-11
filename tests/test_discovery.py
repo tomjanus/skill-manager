@@ -8,6 +8,8 @@ from pathlib import Path
 from skill_manager.discovery import (
     DuplicateInfo,
     content_hash,
+    discover_all_candidates,
+    discover_bundles,
     discover_skills,
     discover_skills_with_duplicates,
     parse_frontmatter,
@@ -170,6 +172,110 @@ class DiscoverSkillsDedupTests(unittest.TestCase):
         self.assertEqual(dup.name, "dup")
         self.assertEqual(dup.chosen, new_dir / "dup")
         self.assertIn(old_dir / "dup", dup.duplicates)
+
+
+def _write_skill_manual(
+    root: Path, relative: Path, name: str, description: str
+) -> Path:
+    skill_dir = root / relative
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    frontmatter = f"---\nname: {name}\ndescription: {description}\n---\n\n"
+    (skill_dir / "SKILL.md").write_text(frontmatter, encoding="utf-8")
+    return skill_dir
+
+
+class DiscoverBundlesTests(unittest.TestCase):
+    def test_folder_with_skills_and_no_skill_md_is_a_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_skill_manual(root, Path("collection") / "alpha", "alpha", "A.")
+            _write_skill_manual(root, Path("collection") / "beta", "beta", "B.")
+            bundles = discover_bundles(root)
+        self.assertEqual([b.name for b in bundles], ["collection"])
+        self.assertEqual({s.name for s in bundles[0].skills}, {"alpha", "beta"})
+
+    def test_folder_with_skill_md_is_not_a_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_skill_manual(root, Path("alpha"), "alpha", "A.")
+            bundles = discover_bundles(root)
+        self.assertEqual(bundles, [])
+
+    def test_folder_with_single_skill_is_not_a_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_skill_manual(root, Path("collection") / "alpha", "alpha", "A.")
+            bundles = discover_bundles(root)
+        self.assertEqual(bundles, [])
+
+    def test_duplicate_copies_of_one_skill_do_not_form_a_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_skill_manual(root, Path("collection") / "first", "same", "A.")
+            _write_skill_manual(root, Path("collection") / "second", "same", "B.")
+            bundles = discover_bundles(root)
+        self.assertEqual(bundles, [])
+
+    def test_skills_dir_root_is_never_a_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_skill_manual(root, Path("alpha"), "alpha", "A.")
+            _write_skill_manual(root, Path("beta"), "beta", "B.")
+            bundles = discover_bundles(root)
+        self.assertEqual(bundles, [])
+
+    def test_highest_level_folder_is_the_bundle_no_nesting(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_skill_manual(root, Path("top") / "inner" / "alpha", "alpha", "A.")
+            _write_skill_manual(root, Path("top") / "inner" / "beta", "beta", "B.")
+            bundles = discover_bundles(root)
+        self.assertEqual([b.name for b in bundles], ["top"])
+
+    def test_bundles_and_loose_skills_coexist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_skill_manual(root, Path("collection") / "alpha", "alpha", "A.")
+            _write_skill_manual(root, Path("collection") / "beta", "beta", "B.")
+            _write_skill_manual(root, Path("loose"), "loose", "L.")
+            bundles = discover_bundles(root)
+            skills = discover_skills(root)
+        self.assertEqual([b.name for b in bundles], ["collection"])
+        names = {s.name for s in skills}
+        self.assertEqual(names, {"alpha", "beta", "loose"})
+
+    def test_symlinked_collection_is_a_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            real = root / "real-repo"
+            _write_skill_manual(real, Path("alpha"), "alpha", "A.")
+            _write_skill_manual(real, Path("beta"), "beta", "B.")
+            link = root / "collection"
+            os.symlink(real, link)
+            bundles = discover_bundles(root)
+        self.assertEqual([b.name for b in bundles], ["collection"])
+        self.assertEqual({s.name for s in bundles[0].skills}, {"alpha", "beta"})
+
+
+class DiscoverAllCandidatesTests(unittest.TestCase):
+    def test_groups_all_skills_by_name_without_dedup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_skill_manual(root, Path("a") / "dup", "dup", "From A.")
+            _write_skill_manual(root, Path("b") / "dup", "dup", "From B.")
+            candidates = discover_all_candidates(root)
+        self.assertEqual(set(candidates), {"dup"})
+        self.assertEqual(len(candidates["dup"]), 2)
+        descriptions = {s.description for s in candidates["dup"]}
+        self.assertEqual(descriptions, {"From A.", "From B."})
+
+    def test_single_skills_appear_once(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_skill_manual(root, Path("alpha"), "alpha", "A.")
+            candidates = discover_all_candidates(root)
+        self.assertEqual(set(candidates), {"alpha"})
+        self.assertEqual(len(candidates["alpha"]), 1)
 
 
 if __name__ == "__main__":
