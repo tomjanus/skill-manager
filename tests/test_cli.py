@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -86,6 +87,26 @@ class ListTests(CliTestCase):
         self.assertEqual(payload[0]["name"], "alpha")
         self.assertEqual(payload[0]["status"], "installed")
         self.assertEqual(payload[0]["mode"], "link")
+
+    def test_list_shows_full_description(self) -> None:
+        long_desc = (
+            "A very long description that should not be truncated at all "
+            "because rich wraps instead of cutting off the text mid-sentence."
+        )
+        write_skill(self.source, "gamma", long_desc)
+        self.run_cli("list")
+        self.assertIn("mid-sentence.", self.output)
+        self.assertNotIn("...", self.output)
+
+    def test_list_verbose_warns_duplicates(self) -> None:
+        write_skill(self.source, "dup", "Old description.")
+        nested = self.source / "nested"
+        write_skill(nested, "dup", "New description.")
+        os.utime(nested / "dup" / "SKILL.md", (1_000_000_000, 1_000_000_000))
+        os.utime(self.source / "dup" / "SKILL.md", (1, 1))
+        self.run_cli("list", "--verbose")
+        self.assertIn("defined multiple times", self.errors)
+        self.assertIn("newest source", self.errors)
 
 
 class SyncTests(CliTestCase):

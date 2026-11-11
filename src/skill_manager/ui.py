@@ -11,6 +11,8 @@ import sys
 from collections.abc import Callable, Sequence
 from typing import Protocol, TypeVar
 
+import questionary
+
 T = TypeVar("T")
 
 
@@ -61,27 +63,17 @@ class ConsoleUI:
     ) -> list[T]:
         if not items:
             return []
-        for index, item in enumerate(items, start=1):
-            print(f"  {index:>3}. {render(index, item)}")
+        choices = [
+            questionary.Choice(title=render(index, item), value=item, checked=False)
+            for index, item in enumerate(items, start=1)
+        ]
         try:
-            answer = input(
-                "Select skills (comma-separated numbers, 'all', empty to cancel): "
-            ).strip()
-        except EOFError:
+            answers = questionary.checkbox("Select skills:", choices=choices).ask()
+        except (KeyboardInterrupt, EOFError):
             return []
-        if not answer:
+        if answers is None:
             return []
-        if answer.lower() == "all":
-            return list(items)
-        selected: list[T] = []
-        for part in answer.split(","):
-            part = part.strip()
-            if not part.isdigit():
-                continue
-            number = int(part)
-            if 1 <= number <= len(items):
-                selected.append(items[number - 1])
-        return selected
+        return list(answers)
 
 
 class FakeUI:

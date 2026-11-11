@@ -7,6 +7,9 @@ import json
 import sys
 from pathlib import Path
 
+from rich.console import Console
+from rich.table import Table
+
 from . import config
 from .manifest import ManifestError
 from .operations import Manager, SkillView
@@ -57,6 +60,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show only skills installed in the project.",
     )
     list_parser.add_argument("--json", action="store_true", help="Output JSON.")
+    list_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Report duplicate skills and the newest source chosen.",
+    )
 
     add_parser = sub.add_parser("add", help="Add skills to the project.")
     add_parser.add_argument(
@@ -70,6 +78,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_parser.add_argument(
         "--yes", action="store_true", help="Do not ask for confirmation."
+    )
+    add_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Report duplicate skills and the newest source chosen.",
     )
 
     remove_parser = sub.add_parser("remove", help="Remove skills from the project.")
@@ -105,23 +118,19 @@ def _resolve_paths(args: argparse.Namespace) -> tuple[Path, Path, Path, Path]:
 
 
 def _print_table(views: list[SkillView]) -> None:
-    name_width = max([len("NAME")] + [len(v.name) for v in views])
-    status_width = max([len("STATUS")] + [len(v.status) for v in views])
-    mode_width = max([len("MODE")] + [len(v.mode or "—") for v in views])
-    header = (
-        f"{'NAME':<{name_width}}  {'STATUS':<{status_width}}  "
-        f"{'MODE':<{mode_width}}  DESCRIPTION"
-    )
-    print(header)
+    console = Console()
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("NAME")
+    table.add_column("STATUS")
+    table.add_column("MODE")
+    table.add_column("DESCRIPTION")
     for view in views:
+        mode = view.mode or "—"
         description = view.description
-        if len(description) > 60:
-            description = description[:57] + "..."
-        managed = "  (managed by opencode)" if view.status == "external" else ""
-        print(
-            f"{view.name:<{name_width}}  {view.status:<{status_width}}  "
-            f"{(view.mode or '—'):<{mode_width}}  {description}{managed}"
-        )
+        if view.status == "external":
+            description = f"{description}  (managed by opencode)"
+        table.add_row(view.name, view.status, mode, description)
+    console.print(table)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -138,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "list":
-            views = manager.list_views()
+            views = manager.list_views(verbose=args.verbose)
             if args.available:
                 views = [v for v in views if v.source_path is not None]
             if args.installed:
@@ -161,6 +170,7 @@ def main(argv: list[str] | None = None) -> int:
                 force=args.force,
                 yes=args.yes,
                 interactive=not args.names,
+                verbose=args.verbose,
             )
             return 0 if ok else 1
 
