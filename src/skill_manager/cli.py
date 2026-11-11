@@ -9,10 +9,23 @@ from pathlib import Path
 
 from rich.console import Console
 from rich.table import Table
+from rich.text import Text
 
 from . import config
 from .manifest import ManifestError
-from .operations import Manager, SkillView
+from .operations import (
+    STATUS_BROKEN,
+    STATUS_EXTERNAL,
+    STATUS_INSTALLED,
+    STATUS_MISSING,
+    STATUS_MISSING_SOURCE,
+    STATUS_NOT_INSTALLED,
+    STATUS_OUTDATED,
+    STATUS_PARTIAL,
+    Manager,
+    SkillTreeNode,
+    SkillView,
+)
 from .platform import LinkError
 from .project import find_project_root
 from .ui import ConsoleUI
@@ -82,7 +95,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Report duplicate skills and the newest source chosen.",
+        help="Report duplicate skills and the newest source default.",
     )
 
     remove_parser = sub.add_parser("remove", help="Remove skills from the project.")
@@ -117,19 +130,86 @@ def _resolve_paths(args: argparse.Namespace) -> tuple[Path, Path, Path, Path]:
     return env_file, project_root, skills_dir, target_dir
 
 
-def _print_table(views: list[SkillView]) -> None:
-    console = Console()
+_STATUS_STYLES = {
+    STATUS_INSTALLED: "green",
+    STATUS_OUTDATED: "yellow",
+    STATUS_BROKEN: "red",
+    STATUS_PARTIAL: "cyan",
+    STATUS_MISSING: "yellow",
+    STATUS_MISSING_SOURCE: "dim",
+    STATUS_NOT_INSTALLED: "dim",
+    STATUS_EXTERNAL: "dim",
+}
+
+
+def _status_cell(status: str) -> Text:
+    return Text(status, style=_STATUS_STYLES.get(status, "default"))
+
+
+def _mode_cell(view: SkillView) -> Text:
+    return Text(view.mode or "—", style="default" if view.mode else "dim")
+
+
+def _description_cell(view: SkillView) -> str:
+    if view.status == STATUS_EXTERNAL:
+        return f"{view.description}  (managed by opencode)"
+    return view.description
+
+
+def _table() -> Table:
     table = Table(show_header=True, header_style="bold")
     table.add_column("NAME")
     table.add_column("STATUS")
     table.add_column("MODE")
     table.add_column("DESCRIPTION")
+
+    return table
+
+
+def _print_table(views: list[SkillView]) -> None:
+    console = Console()
+    table = _table()
     for view in views:
-        mode = view.mode or "—"
-        description = view.description
-        if view.status == "external":
-            description = f"{description}  (managed by opencode)"
-        table.add_row(view.name, view.status, mode, description)
+        name: str | Text = view.name
+        if view.status == STATUS_EXTERNAL:
+            name = Text(view.name, style="dim")
+        table.add_row(
+            name,
+            _status_cell(view.status),
+            _mode_cell(view),
+            _description_cell(view),
+        )
+    console.print(table)
+
+
+def _print_tree_table(roots: list[SkillTreeNode]) -> None:
+    console = Console()
+    table = _table()
+    for node in roots:
+        view = node.view
+        if node.children:
+            name: str | Text = Text(f"📦 {view.name} (bundle)", style="bold")
+        elif view.status == STATUS_EXTERNAL:
+            name = Text(view.name, style="dim")
+        else:
+            name = view.name
+        table.add_row(
+            name,
+            _status_cell(view.status),
+            _mode_cell(view),
+            _description_cell(view),
+        )
+        for index, child in enumerate(node.children):
+            branch = "└─ " if index == len(node.children) - 1 else "├─ "
+            child_name: str | Text = f"  {branch}{child.view.name}"
+            if child.view.status == STATUS_EXTERNAL:
+                child_name = Text(str(child_name), style="dim")
+            table.add_row(
+                child_name,
+                _status_cell(child.view.status),
+                _mode_cell(child.view),
+                _description_cell(child.view),
+            )
     console.print(table)
 
 
@@ -147,13 +227,19 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "list":
-            views = manager.list_views(verbose=args.verbose)
+            views, tree_roots = manager.list_data(verbose=args.verbose)
             if args.available:
                 views = [v for v in views if v.source_path is not None]
             if args.installed:
                 views = [v for v in views if v.target_path is not None]
             if args.json:
                 print(json.dumps([v.to_dict() for v in views], indent=2))
+            elif (
+                not args.available
+                and not args.installed
+                and any(node.children for node in tree_roots)
+            ):
+                _print_tree_table(tree_roots)
             else:
                 _print_table(views)
             return 0
@@ -169,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
                 mode="copy" if args.copy else "link",
                 force=args.force,
                 yes=args.yes,
-                interactive=not args.names,
+                interactive=sys.stdin.isatty(),
                 verbose=args.verbose,
             )
             return 0 if ok else 1

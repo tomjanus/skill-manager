@@ -96,13 +96,20 @@ Skills may live at any depth under the source folder; discovery is recursive.
 
 ```
 ~/skills/
-├── scientific-python/
-│   ├── SKILL.md
-│   └── references/
+├── matt_pocock/              ← a bundle (often a linked skills repository)
+│   └── skills/
+│       ├── ask-matt/
+│       │   └── SKILL.md
+│       └── matt-methods/
+│           └── SKILL.md
 ├── tdd/
 │   └── SKILL.md
 └── linked-repo/            ← a cloned skills repo linked into this folder
-    └── SKILL.md
+    └── skills/
+        ├── skill-one/
+        │   └── SKILL.md
+        └── skill-two/
+            └── SKILL.md
 ```
 
 `SKILL.md` must be in ALL CAPS. The skill `name` is taken from the frontmatter
@@ -120,6 +127,10 @@ description: Reliable and reproducible Python scientific computing.
 
 Directory symlinks and Windows junctions under the source folder are followed
 (so a linked skills repo is discovered), with protection against symlink cycles.
+A bundle is a folder other than the source root that has no `SKILL.md` at its
+root and contains at least two distinct skills beneath it. The outermost
+qualifying folder is used as the bundle; bundles do not nest. A folder with a
+`SKILL.md` is an individual skill, not a bundle.
 
 
 ### 3. Add skills to a project
@@ -128,6 +139,7 @@ Directory symlinks and Windows junctions under the source folder are followed
 cd ~/projects/my-project
 simple-skill-manager add                 # interactive picker
 simple-skill-manager add tdd scientific-python
+simple-skill-manager add matt_pocock     # install every skill in the bundle
 simple-skill-manager add tdd --copy      # copy instead of linking
 ```
 
@@ -135,25 +147,38 @@ simple-skill-manager add tdd --copy      # copy instead of linking
 opencode looks for project skills. The project root is the enclosing git
 worktree, so the command works from any subdirectory.
 
+Installing a *bundle* installs all its member skills into the project, each
+under its own name. In the interactive picker, bundle and individual skill
+choices are both available, so you can install a whole collection or only
+selected members.
+
+If a skill name exists at multiple source paths, interactive `add` asks which
+source to use and shows each candidate's description and bundle. This prompt
+requires a terminal; a non-interactive add with an unresolved duplicate exits
+with an error. `list` and `sync` continue to choose the newest `SKILL.md` by
+mtime.
+
 ### 4. See what you have
 
 ```bash
 simple-skill-manager list
 ```
 
+By default `list` renders each bundle as a group header, with member skills
+indented underneath:
+
 ```
-┌──────────────┬───────────────┬──────┬──────────────────────────────────────────────────┐
-│ NAME         │ STATUS        │ MODE │ DESCRIPTION                                      │
-├──────────────┼───────────────┼──────┼──────────────────────────────────────────────────┤
-│ scientific-python │ installed │ link │ Reliable and reproducible Python scientific    │
-│              │               │      │ computing.                                       │
-│ tdd          │ outdated      │ copy │ Test-first implementation and regression…        │
-│ pdf          │ external      │ —    │ (managed by opencode)                            │
-│ water-distribution │ not-installed │ — │ Water-distribution networks, hydraulics…   │
-└──────────────┴───────────────┴──────┴──────────────────────────────────────────────────┘
+NAME                      STATUS        MODE  DESCRIPTION
+📦 matt_pocock (bundle)   partial       —     bundle of 2 skills
+  ├─ ask-matt             installed     link  …
+  └─ matt-methods         not-installed —     …
+tdd                       installed     link  Test-first…
 ```
 
-`list --json` emits the same information as JSON for scripting.
+`list --json` emits a flat JSON array (one row per skill) for scripting.
+`--available` and `--installed` also use a flat table.
+In a terminal, statuses and operation messages are colour-coded; colours are
+automatically omitted when output is piped or captured.
 
 `list --verbose` additionally reports any doubled skills (the same name defined at
 multiple source paths), naming the newest `SKILL.md` that is used and the paths
@@ -176,11 +201,12 @@ Merges three sources of truth — your source folder, the project's
 | Status | Meaning |
 | --- | --- |
 | `installed` | Present and matching the source |
-| `outdated` | A copy whose source has changed |
+| `outdated` | A copy whose source changed, or a managed link that points to a different duplicate source than the current newest choice |
 | `broken` | A link whose target has disappeared |
 | `missing` | In the manifest, but not in the project folder |
 | `missing-source` | In the project, but gone from the source folder |
 | `not-installed` | Available in the source folder, not in the project |
+| `partial` | A bundle with some, but not all, member skills installed |
 | `external` | In the project folder but **not** managed by `simple-skill-manager` (for example opencode's own installer) |
 
 Flags: `--available` (source only), `--installed` (project only), `--json`,
@@ -190,9 +216,10 @@ Flags: `--available` (source only), `--installed` (project only), `--json`,
 
 Adds skills to the project.
 
-- With no names, opens an interactive picker (`questionary` checkbox list
-  showing name and description; use arrow keys and space to select). No
-  typing of full skill names is required. Requires a terminal.
+- With no names, opens an interactive picker (`questionary` checkbox list)
+  showing bundles and individual skills. Selecting a bundle installs all its
+  members; selecting member skills installs only those members. Requires a
+  terminal.
 - **Links by default**, so edits to the source skill are picked up
   immediately. Use `--copy` for a frozen snapshot.
 - If the skill is already installed and unchanged, reports `already up to
@@ -201,7 +228,10 @@ Adds skills to the project.
   updating. `--yes` accepts all updates.
 - If the target exists but is **not** managed by `simple-skill-manager`, the
   command refuses to touch it. `--force` replaces it.
-- `--verbose` reports any doubled skills (the same name defined at multiple
+- Installing a bundle reports a summary after processing its member skills.
+- If a requested skill name has multiple source paths, interactive `add`
+  prompts for the source; non-interactive `add` reports an error.
+- `--verbose` reports duplicate skills (the same name defined at multiple
   source paths), naming the newest `SKILL.md` that is used and the paths
   that were ignored.
 

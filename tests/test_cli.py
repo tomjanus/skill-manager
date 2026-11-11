@@ -7,6 +7,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from skill_manager.cli import main
 from skill_manager.platform import is_link
@@ -107,6 +108,80 @@ class ListTests(CliTestCase):
         self.run_cli("list", "--verbose")
         self.assertIn("defined multiple times", self.errors)
         self.assertIn("newest source", self.errors)
+
+
+class ListTreeTests(CliTestCase):
+    def test_list_renders_bundle_tree(self) -> None:
+        for member in ("alpha", "beta"):
+            skill_dir = self.source / "collection" / member
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            (skill_dir / "SKILL.md").write_text(
+                f"---\nname: {member}\ndescription: {member} skill.\n---\n\n",
+                encoding="utf-8",
+            )
+        write_skill(self.source, "loose", "Loose skill.")
+        self.run_cli("add", "collection")
+        self.run_cli("list")
+        self.assertIn("bundle", self.output)
+        self.assertIn("alpha", self.output)
+        self.assertIn("beta", self.output)
+        self.assertIn("loose", self.output)
+
+    def test_list_available_stays_flat(self) -> None:
+        for member in ("alpha", "beta"):
+            skill_dir = self.source / "collection" / member
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            (skill_dir / "SKILL.md").write_text(
+                f"---\nname: {member}\ndescription: {member} skill.\n---\n\n",
+                encoding="utf-8",
+            )
+        self.run_cli("add", "collection")
+        self.run_cli("list", "--available", "--json")
+        payload = json.loads(self.output)
+        names = [item["name"] for item in payload]
+        self.assertIn("alpha", names)
+        self.assertIn("beta", names)
+
+
+class AddConflictTests(CliTestCase):
+    def test_named_add_prompts_for_duplicate_source_in_a_terminal(self) -> None:
+        for bundle, member, description in (
+            ("a-bundle", "dup", "From A."),
+            ("a-bundle", "a-only", "A only."),
+            ("b-bundle", "dup", "From B."),
+            ("b-bundle", "b-only", "B only."),
+        ):
+            skill_dir = self.source / bundle / member
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            (skill_dir / "SKILL.md").write_text(
+                f"---\nname: {member}\ndescription: {description}\n---\n\n",
+                encoding="utf-8",
+            )
+        os.utime(
+            self.source / "a-bundle" / "dup" / "SKILL.md",
+            (1_000_000_000, 1_000_000_000),
+        )
+        os.utime(self.source / "b-bundle" / "dup" / "SKILL.md", (1, 1))
+
+        def choose_second_source(
+            question: str, choices: list[object], **kwargs: object
+        ):
+            return mock.Mock(ask=mock.Mock(return_value=choices[1].value))
+
+        with (
+            mock.patch("sys.stdin", mock.Mock(isatty=mock.Mock(return_value=True))),
+            mock.patch(
+                "skill_manager.ui.questionary.select",
+                side_effect=choose_second_source,
+            ) as select,
+        ):
+            self.assertEqual(self.run_cli("add", "dup"), 0)
+
+        self.assertEqual(
+            self.target("dup").resolve(), (self.source / "b-bundle" / "dup").resolve()
+        )
+        self.assertIn("From A.", select.call_args.kwargs["choices"][0].title)
+        self.assertIn("From B.", select.call_args.kwargs["choices"][1].title)
 
 
 class SyncTests(CliTestCase):
