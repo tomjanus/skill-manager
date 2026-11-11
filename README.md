@@ -15,7 +15,9 @@ copy.
 
 - **Linux, macOS, and Windows** (Windows uses a directory junction when
   symlinks are unavailable).
-- **No runtime dependencies** — Python 3.10+ standard library only.
+- **Runtime dependencies:** `rich` and `questionary` for the presentation
+  layer (table rendering and the interactive picker). Everything else is
+  Python 3.10+ standard library.
 - **Reproducible** — the project's selection is recorded in a committed
   manifest, so `simple-skill-manager sync` can restore it anywhere.
 
@@ -89,16 +91,23 @@ This creates:
 
 ### 2. Put your skills in the source folder
 
-Each skill is a directory containing a `SKILL.md` with YAML frontmatter:
+Each skill is a directory containing a `SKILL.md` with YAML frontmatter.
+Skills may live at any depth under the source folder; discovery is recursive.
 
 ```
 ~/skills/
 ├── scientific-python/
 │   ├── SKILL.md
 │   └── references/
-└── tdd/
+├── tdd/
+│   └── SKILL.md
+└── linked-repo/            ← a cloned skills repo linked into this folder
     └── SKILL.md
 ```
+
+`SKILL.md` must be in ALL CAPS. The skill `name` is taken from the frontmatter
+`name` field, falling back to the directory name. The `name` must be lowercase
+alphanumeric with single hyphens.
 
 `~/skills/scientific-python/SKILL.md`:
 
@@ -107,13 +116,11 @@ Each skill is a directory containing a `SKILL.md` with YAML frontmatter:
 name: scientific-python
 description: Reliable and reproducible Python scientific computing.
 ---
-
-# Scientific Python
-...
 ```
 
-`SKILL.md` must be in ALL CAPS. The `name` field must match the directory
-name and be lowercase alphanumeric with single hyphens.
+Directory symlinks and Windows junctions under the source folder are followed
+(so a linked skills repo is discovered), with protection against symlink cycles.
+
 
 ### 3. Add skills to a project
 
@@ -135,14 +142,22 @@ simple-skill-manager list
 ```
 
 ```
-NAME                STATUS        MODE    DESCRIPTION
-scientific-python   installed     link    Reliable and reproducible Python scientific...
-tdd                 outdated      copy    Test-first implementation and regression...
-pdf                 external      —       (managed by opencode)
-water-distribution  not-installed —       Water-distribution networks, hydraulics...
+┌──────────────┬───────────────┬──────┬──────────────────────────────────────────────────┐
+│ NAME         │ STATUS        │ MODE │ DESCRIPTION                                      │
+├──────────────┼───────────────┼──────┼──────────────────────────────────────────────────┤
+│ scientific-python │ installed │ link │ Reliable and reproducible Python scientific    │
+│              │               │      │ computing.                                       │
+│ tdd          │ outdated      │ copy │ Test-first implementation and regression…        │
+│ pdf          │ external      │ —    │ (managed by opencode)                            │
+│ water-distribution │ not-installed │ — │ Water-distribution networks, hydraulics…   │
+└──────────────┴───────────────┴──────┴──────────────────────────────────────────────────┘
 ```
 
 `list --json` emits the same information as JSON for scripting.
+
+`list --verbose` additionally reports any doubled skills (the same name defined at
+multiple source paths), naming the newest `SKILL.md` that is used and the paths
+that were ignored.
 
 ---
 
@@ -168,14 +183,16 @@ Merges three sources of truth — your source folder, the project's
 | `not-installed` | Available in the source folder, not in the project |
 | `external` | In the project folder but **not** managed by `simple-skill-manager` (for example opencode's own installer) |
 
-Flags: `--available` (source only), `--installed` (project only), `--json`.
+Flags: `--available` (source only), `--installed` (project only), `--json`,
+`--verbose`.
 
 ### `simple-skill-manager add [NAME ...]`
 
 Adds skills to the project.
 
-- With no names, opens an interactive picker (numbers, comma-separated,
-  or `all`). Requires a terminal.
+- With no names, opens an interactive picker (`questionary` checkbox list
+  showing name and description; use arrow keys and space to select). No
+  typing of full skill names is required. Requires a terminal.
 - **Links by default**, so edits to the source skill are picked up
   immediately. Use `--copy` for a frozen snapshot.
 - If the skill is already installed and unchanged, reports `already up to
@@ -184,8 +201,11 @@ Adds skills to the project.
   updating. `--yes` accepts all updates.
 - If the target exists but is **not** managed by `simple-skill-manager`, the
   command refuses to touch it. `--force` replaces it.
+- `--verbose` reports any doubled skills (the same name defined at multiple
+  source paths), naming the newest `SKILL.md` that is used and the paths
+  that were ignored.
 
-Flags: `--copy`, `--force`, `--yes`.
+Flags: `--copy`, `--force`, `--yes`, `--verbose`.
 
 ### `simple-skill-manager remove NAME ...`
 
@@ -316,8 +336,10 @@ value containing `=` should be quoted.
 ### Requirements
 
 - Python 3.10 or newer.
-- No runtime dependencies. The test and tooling dependencies are declared
-  as extras in `pyproject.toml` and installed on demand.
+- Runtime dependencies: `rich` and `questionary` (declared in
+  `pyproject.toml` and installed with the package).
+- The test and tooling dependencies are declared as extras in
+  `pyproject.toml` and installed on demand.
 
 ### Set up an environment
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "simple-skill-manager"
-version = "0.1.0"
+version = "0.2.0"
 description = "Manager of opencode Agent Skills: keeps them in a private folder and links or copies the ones a project needs."
 readme = "README.md"
 requires-python = ">=3.10"

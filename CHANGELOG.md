@@ -7,7 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-10-21
+## [0.2.0] - 2026-11-11
+
+### Added
+
+- `list` now renders with `rich`, showing full (non-truncated) descriptions
+  with wrapping instead of cutting them off.
+- `add` offers an interactive `questionary` checkbox picker, so skills can be
+  selected without typing full names.
+- `--verbose` flag on `list` and `add` to report doubled skills.
+- Recursive skill discovery: `SKILL.md` files are found in nested folders
+  under the skills directory, with names derived from frontmatter.
+- Discovery follows directory symlinks and Windows junctions, with cycle
+  detection via realpath, so a cloned skills repo linked inside the skills
+  folder is discovered.
+- Doubled skills (same name at multiple paths) are resolved by the newest
+  `SKILL.md` mtime; the repetition and chosen source are reported under
+  `--verbose`.
+- New runtime dependencies: `rich` and `questionary`.
+
+### Changed
+
+- The `add` interactive picker now uses `questionary` instead of typed
+  numbers; descriptions are no longer truncated in `list` output.
+
+[0.1.0] - 2026-10-21
 
 First public release.
 
