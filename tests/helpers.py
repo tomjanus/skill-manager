@@ -31,5 +31,9 @@ def init_git(root: Path) -> None:
     (Path(root) / ".git").mkdir(parents=True, exist_ok=True)
 
 
-def make_ui(confirm_answer: bool = True, chosen: list[int] | None = None) -> FakeUI:
-    return FakeUI(confirm_answer=confirm_answer, chosen=chosen)
+def make_ui(
+    confirm_answer: bool = True,
+    chosen: list[int] | None = None,
+    chosen_one: int | None = None,
+) -> FakeUI:
+    return FakeUI(confirm_answer=confirm_answer, chosen=chosen, chosen_one=chosen_one)
