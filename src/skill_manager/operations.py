@@ -8,7 +8,12 @@ from pathlib import Path
 from typing import Any
 
 from . import config, manifest
-from .discovery import Skill, content_hash, discover_skills
+from .discovery import (
+    Skill,
+    content_hash,
+    discover_skills,
+    discover_skills_with_duplicates,
+)
 from .platform import LinkError, copy_tree, is_link, link, remove_target, target_exists
 from .project import TargetInfo, scan_target
 from .ui import UI
@@ -89,9 +94,21 @@ class Manager:
     # ------------------------------------------------------------------
     # list
     # ------------------------------------------------------------------
-    def list_views(self) -> list[SkillView]:
+    def list_views(self, verbose: bool = False) -> list[SkillView]:
         """Return merged skill views sorted by name."""
-        available = {skill.name: skill for skill in discover_skills(self.skills_dir)}
+        if verbose:
+            available_map, duplicates = discover_skills_with_duplicates(self.skills_dir)
+            available = {skill.name: skill for skill in available_map}
+            for dup in duplicates:
+                ignored = ", ".join(str(p) for p in dup.duplicates)
+                self.ui.warn(
+                    f"Skill '{dup.name}' is defined multiple times; using the "
+                    f"newest source '{dup.chosen}' and ignoring '{ignored}'."
+                )
+        else:
+            available = {
+                skill.name: skill for skill in discover_skills(self.skills_dir)
+            }
         targets = scan_target(self.target_dir)
         data = manifest.load_manifest(self.manifest_path)
 
@@ -126,13 +143,26 @@ class Manager:
         force: bool,
         yes: bool,
         interactive: bool,
+        verbose: bool = False,
     ) -> bool:
         """Add skills to the project, linking or copying them.
 
         Returns ``True`` when every requested skill ended up installed (or
         was already up to date).
         """
-        available = {skill.name: skill for skill in discover_skills(self.skills_dir)}
+        if verbose:
+            available_map, duplicates = discover_skills_with_duplicates(self.skills_dir)
+            available = {skill.name: skill for skill in available_map}
+            for dup in duplicates:
+                ignored = ", ".join(str(p) for p in dup.duplicates)
+                self.ui.warn(
+                    f"Skill '{dup.name}' is defined multiple times; using the "
+                    f"newest source '{dup.chosen}' and ignoring '{ignored}'."
+                )
+        else:
+            available = {
+                skill.name: skill for skill in discover_skills(self.skills_dir)
+            }
         if not available:
             self.ui.warn(f"No skills found in {self.skills_dir}.")
             return False
@@ -370,10 +400,7 @@ class Manager:
 
     @staticmethod
     def _render_choice(index: int, skill: Skill) -> str:
-        description = skill.description
-        if len(description) > 60:
-            description = description[:57] + "..."
-        return f"{skill.name:<24} {description}"
+        return f"{skill.name:<24} {skill.description}"
 
 
 def _status(

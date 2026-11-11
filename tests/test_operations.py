@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -129,6 +130,19 @@ class AddTests(ManagerTestCase):
         names = [view.name for view in self.manager.list_views()]
         self.assertEqual(names, ["alpha"])
 
+    def test_add_verbose_warns_duplicates(self) -> None:
+        write_skill(self.source, "dup", "Old description.")
+        nested = self.source / "nested"
+        write_skill(nested, "dup", "New description.")
+        os.utime(nested / "dup" / "SKILL.md", (1_000_000_000, 1_000_000_000))
+        os.utime(self.source / "dup" / "SKILL.md", (1, 1))
+
+        self.manager.add(
+            ["dup"], "link", force=False, yes=True, interactive=False, verbose=True
+        )
+
+        self.assertTrue(any("defined multiple times" in w for w in self.ui.warnings))
+
 
 class RemoveTests(ManagerTestCase):
     def test_remove_deletes_target_and_manifest(self) -> None:
@@ -201,6 +215,18 @@ class ListTests(ManagerTestCase):
         self.assertEqual(views["copied"].status, STATUS_OUTDATED)
         self.assertEqual(views["external"].status, STATUS_EXTERNAL)
         self.assertEqual(views["absent"].status, STATUS_NOT_INSTALLED)
+
+    def test_list_views_verbose_warns_duplicates(self) -> None:
+        write_skill(self.source, "dup", "Old description.")
+        nested = self.source / "nested"
+        write_skill(nested, "dup", "New description.")
+        os.utime(nested / "dup" / "SKILL.md", (1_000_000_000, 1_000_000_000))
+        os.utime(self.source / "dup" / "SKILL.md", (1, 1))
+
+        self.manager.list_views(verbose=True)
+
+        self.assertTrue(any("defined multiple times" in w for w in self.ui.warnings))
+        self.assertTrue(any("newest source" in w for w in self.ui.warnings))
 
 
 if __name__ == "__main__":
